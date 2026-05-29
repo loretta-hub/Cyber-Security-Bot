@@ -105,7 +105,10 @@ Future Improvements
 
 
 Author
-Loretta Mukhethwa Mamathuntsha ST10497012 Cybersecurity Chatbot POE  – Part 2  
+Loretta Mukhethwa Mamathuntsha ST10497012 Cybersecurity Chatbot POE  – Part 2 
+
 Project updated with cyber security features and GUI improvements 
 Updated README with GUI feature documentation
 Implemented keyword recognition for cybersecurity topics 
+Implemented memory recall system to store user name and intrests for personalised response 
+
