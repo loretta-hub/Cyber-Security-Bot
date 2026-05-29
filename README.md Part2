@@ -1,0 +1,108 @@
+Cybersecurity Awareness Chatbot Part 2
+
+ Project Overview
+This project is a WPF-based Cybersecurity Awareness Chatbot developed in C#. The chatbot is designed to educate users about basic cybersecurity threats such as phishing, scams, password safety, and privacy protection.
+
+The system uses a graphical user interface (GUI) to make interactions more user-friendly and includes voice output, memory recall, sentiment detection, and keyword recognition.
+
+
+
+Features
+ Keyword Recognition
+The chatbot detects cybersecurity-related keywords such as:
+- Password
+- Scam
+- Privacy
+- Phishing
+
+It responds with relevant cybersecurity advice based on the detected keyword.
+
+
+ Random Responses
+To make interactions more dynamic, the chatbot uses lists of predefined responses and randomly selects:
+- Phishing tips
+- Security warnings
+
+
+
+ Memory and Recall
+The chatbot remembers user information such as:
+- User name
+- User’s cybersecurity interest (e.g. privacy)
+
+It uses this information later to personalise responses.
+
+Example:
+- “Nice to meet you Alex”
+- “As someone interested in privacy, you should review your security settings.”
+
+
+
+Sentiment Detection
+The chatbot detects user emotions such as:
+- Worried
+- Curious
+- Frustrated
+
+It adjusts responses to be more empathetic and supportive when needed.
+
+
+ Conversation Flow
+The chatbot maintains context during conversations and supports follow-up inputs such as:
+- “Tell me more”
+- “Explain more”
+- “Another tip”
+
+This allows continuous conversation without restarting context.
+
+
+Voice Implementation
+The chatbot uses `System.Speech.Synthesis` to provide voice output for key responses, improving user engagement and interactivity.
+
+
+
+ Error Handling
+The chatbot includes default responses for unrecognised inputs to ensure stability:
+- “I'm not sure I understand. Can you try rephrasing?”
+
+
+ Technologies Used
+- C#
+- WPF (Windows Presentation Foundation)
+- .NET Framework / .NET (with System.Speech via NuGet)
+- Visual Studio
+
+
+
+ Project Structure
+- MainWindow.xaml → GUI layout
+- MainWindow.xaml.cs → Chatbot logic and functionality
+
+
+
+ How to Run the Project
+1. Open the solution in Visual Studio
+2. Restore NuGet packages (System.Speech)
+3. Build the solution
+4. Run the application (Start Debugging)
+
+
+ Features Demonstrated
+- Interactive chatbot GUI
+- Cybersecurity advice system
+- Voice responses
+- Memory recall system
+- Sentiment-based responses
+
+
+
+Future Improvements
+- Improved AI-based responses
+- Database integration for persistent memory
+- Enhanced phishing detection using URLs
+- Speech-to-text input
+
+
+
+Author
+Loretta Mukhethwa Mamathuntsha ST10497012 Cybersecurity Chatbot POE  – Part 2  
