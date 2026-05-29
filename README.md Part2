@@ -112,4 +112,5 @@ Updated README with GUI feature documentation
 Implemented keyword recognition for cybersecurity topics 
 Implemented memory recall system to store user name and intrests for personalised response
 Implemented sentiment detection to adjust chatbot responses based on user emotions such as worried, curious, and frustrated
+Finalised chatbot with voice output, random phishing responses, and improved conversation flow for full functionality
 
