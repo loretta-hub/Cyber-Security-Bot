@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Speech.Synthesis;
 using System.Windows;
+using MySql.Data.MySqlClient;
 
 namespace CyberSecurityBot1GUI
 {
@@ -9,9 +10,17 @@ namespace CyberSecurityBot1GUI
     {
         Random random = new Random();
         SpeechSynthesizer synth = new SpeechSynthesizer();
+        DatabaseHelper db = new DatabaseHelper();
+
+        List<(string Question, string[] Options, int CorrectIndex, string Explanation)> quiz;
+        int currentQuestion = 0;
+        int score = 0;
+        bool quizActive = false;
 
         string currentTopic = "";
         Dictionary<string, string> memory = new Dictionary<string, string>();
+
+        List<string> activityLog = new List<string>();
 
         List<string> phishingTips = new List<string>()
         {
@@ -22,7 +31,7 @@ namespace CyberSecurityBot1GUI
 
         string[] phishingAlerts =
         {
-            " This message looks suspicious. Do not share personal details.",
+            "This message looks suspicious. Do not share personal details.",
             "Security warning: Possible phishing attempt detected.",
             "Be careful — this may be a scam message."
         };
@@ -32,155 +41,219 @@ namespace CyberSecurityBot1GUI
             InitializeComponent();
         }
 
+        private void AddLog(string action)
+        {
+            activityLog.Add(action);
+        }
+
+        private void LoadQuiz()
+        {
+            quiz = new List<(string, string[], int, string)>
+            {
+                ("What should you do if you receive an email asking for your password?",
+                    new string[] { "Reply with it", "Delete email", "Report phishing", "Ignore it" },
+                    2,
+                    "Reporting phishing emails helps prevent scams."),
+
+                ("What is a strong password?",
+                    new string[] { "123456", "Your name", "Mix of letters, numbers & symbols", "password" },
+                    2,
+                    "Strong passwords are complex and hard to guess."),
+
+                ("Phishing is:",
+                    new string[] { "A game", "A cyber scam", "A firewall", "A browser" },
+                    1,
+                    "Phishing tricks users into giving sensitive information."),
+
+                ("True or False: Public Wi-Fi is safe",
+                    new string[] { "True", "False" },
+                    1,
+                    "Public Wi-Fi is not always safe."),
+
+                ("What is 2FA?",
+                    new string[] { "Extra security step", "Virus", "App", "Email" },
+                    0,
+                    "2FA adds extra protection.")
+            };
+        }
+
+        private void ShowQuestion()
+        {
+            if (currentQuestion < quiz.Count)
+            {
+                var q = quiz[currentQuestion];
+
+                ChatDisplay.AppendText("\nQuestion " + (currentQuestion + 1) + "\n");
+                ChatDisplay.AppendText(q.Question + "\n\n");
+
+                ChatDisplay.AppendText("A: " + q.Options[0] + "\n");
+                ChatDisplay.AppendText("B: " + q.Options[1] + "\n");
+
+                if (q.Options.Length > 2)
+                    ChatDisplay.AppendText("C: " + q.Options[2] + "\n");
+
+                if (q.Options.Length > 3)
+                    ChatDisplay.AppendText("D: " + q.Options[3] + "\n");
+
+                ChatDisplay.AppendText("\nType A, B, C or D\n\n");
+            }
+            else
+            {
+                quizActive = false;
+
+                ChatDisplay.AppendText("\nQuiz finished!\n");
+                ChatDisplay.AppendText("Score: " + score + "/" + quiz.Count + "\n");
+
+                if (score >= 4)
+                    ChatDisplay.AppendText("Great job! You're a cybersecurity pro!\n");
+                else
+                    ChatDisplay.AppendText("Keep learning to stay safe online!\n");
+
+                AddLog("Quiz completed - Score: " + score + "/" + quiz.Count);
+            }
+        }
+
+        private void CheckAnswer(string input)
+        {
+            var q = quiz[currentQuestion];
+
+            input = input.ToLower().Trim();
+
+            int selected = -1;
+
+            if (input == "a") selected = 0;
+            else if (input == "b") selected = 1;
+            else if (input == "c") selected = 2;
+            else if (input == "d") selected = 3;
+
+            if (selected == q.CorrectIndex)
+            {
+                score++;
+                ChatDisplay.AppendText("Correct!\n\n");
+                AddLog("Correct answer - Q" + (currentQuestion + 1));
+            }
+            else
+            {
+                ChatDisplay.AppendText("Wrong!\n");
+                ChatDisplay.AppendText(q.Explanation + "\n\n");
+                AddLog("Wrong answer - Q" + (currentQuestion + 1));
+            }
+
+            currentQuestion++;
+            ShowQuestion();
+        }
+
+        private string DetectIntent(string message)
+        {
+            message = message.ToLower();
+
+            if (message.Contains("quiz") || message.Contains("test me") || message.Contains("start quiz"))
+                return "quiz";
+
+            if (message.Contains("add task") || message.Contains("remind me") || message.Contains("set reminder"))
+                return "task";
+
+            if (message.Contains("password"))
+                return "password";
+
+            if (message.Contains("phishing") || message.Contains("scam"))
+                return "phishing";
+
+            if (message.Contains("show log") || message.Contains("activity log"))
+                return "log";
+
+            return "unknown";
+        }
+
+        private string ExtractTask(string message)
+        {
+            string cleaned = message.ToLower();
+
+            cleaned = cleaned.Replace("add task", "")
+                             .Replace("remind me", "")
+                             .Replace("set reminder", "")
+                             .Replace("create task", "")
+                             .Trim();
+
+            return cleaned;
+        }
+
         private void SendButton_Click(object sender, RoutedEventArgs e)
         {
             string userMessage = UserInput.Text.ToLower().Trim();
 
             if (string.IsNullOrWhiteSpace(userMessage))
             {
-                ChatDisplay.AppendText("Bot: Please type a message so I can help you.\n\n");
+                ChatDisplay.AppendText("Bot: Please type a message.\n\n");
                 return;
             }
 
             ChatDisplay.AppendText("You: " + userMessage + "\n");
 
-            string sentiment = DetectSentiment(userMessage);
+            if (quizActive)
+            {
+                CheckAnswer(userMessage);
+                UserInput.Clear();
+                return;
+            }
 
-            HandleMemory(userMessage);
+            string intent = DetectIntent(userMessage);
 
-            HandleKeywords(userMessage);
+            switch (intent)
+            {
+                case "quiz":
+                    LoadQuiz();
+                    currentQuestion = 0;
+                    score = 0;
+                    quizActive = true;
 
-            HandleConversationFlow(userMessage);
+                    ChatDisplay.AppendText("Bot: Starting Quiz...\n\n");
+                    AddLog("Quiz started");
+                    ShowQuestion();
+                    break;
 
-            ChatDisplay.AppendText("Mood detected: " + sentiment + "\n\n");
+                case "task":
+                    string task = ExtractTask(userMessage);
 
-            Speak("Message received");
+                    if (string.IsNullOrWhiteSpace(task))
+                    {
+                        ChatDisplay.AppendText("Bot: What should I remind you about?\n\n");
+                    }
+                    else
+                    {
+                        db.AddTask(task, "Cybersecurity task", DateTime.Now.AddDays(3).ToString("yyyy-MM-dd"));
+                        ChatDisplay.AppendText("Bot: Task added: " + task + "\n\n");
+                        AddLog("Task added: " + task);
+                    }
+                    break;
+
+                case "password":
+                    ChatDisplay.AppendText("Bot: Use strong passwords with numbers and symbols.\n\n");
+                    AddLog("Password query detected");
+                    break;
+
+                case "phishing":
+                    ChatDisplay.AppendText("Bot: " + phishingTips[random.Next(phishingTips.Count)] + "\n\n");
+                    AddLog("Phishing query detected");
+                    break;
+
+                case "log":
+                    ChatDisplay.AppendText("\nBot: Activity Log (Last 10 actions)\n\n");
+
+                    int start = Math.Max(0, activityLog.Count - 10);
+
+                    for (int i = start; i < activityLog.Count; i++)
+                    {
+                        ChatDisplay.AppendText((i + 1) + ". " + activityLog[i] + "\n");
+                    }
+                    break;
+
+                default:
+                    ChatDisplay.AppendText("Bot: I didn't understand that.\n\n");
+                    break;
+            }
 
             UserInput.Clear();
-        }
-
-        private void HandleKeywords(string userMessage)
-        {
-            if (userMessage.Contains("password"))
-            {
-                currentTopic = "password";
-                ChatDisplay.AppendText("Bot: Use strong, unique passwords with numbers, symbols, and no personal details.\n\n");
-            }
-            else if (userMessage.Contains("scam"))
-            {
-                currentTopic = "scam";
-                ChatDisplay.AppendText("Bot: Be cautious of scams asking for money or personal information.\n\n");
-            }
-            else if (userMessage.Contains("privacy"))
-            {
-                currentTopic = "privacy";
-                ChatDisplay.AppendText("Bot: Protect your privacy by securing your accounts and limiting personal information online.\n\n");
-            }
-            else if (userMessage.Contains("phishing"))
-            {
-                currentTopic = "phishing";
-                ChatDisplay.AppendText("Bot: " + phishingTips[random.Next(phishingTips.Count)] + "\n\n");
-            }
-            else if (userMessage.Contains("bank") || userMessage.Contains("otp") || userMessage.Contains("login"))
-            {
-                ChatDisplay.AppendText("Bot: " + phishingAlerts[random.Next(phishingAlerts.Length)] + "\n\n");
-                Speak("Warning detected");
-            }
-            else
-            {
-                ChatDisplay.AppendText("Bot: I'm not sure I understand. Can you try rephrasing?\n\n");
-            }
-        }
-
-        private void HandleConversationFlow(string userMessage)
-        {
-            if (userMessage.Contains("tell me more") ||
-                userMessage.Contains("another tip") ||
-                userMessage.Contains("explain more"))
-            {
-                ContinueConversation();
-            }
-
-            if (userMessage.Contains("worried"))
-            {
-                ChatDisplay.AppendText("Bot: It's completely understandable to feel worried. Scammers can be very convincing.\n\n");
-                ChatDisplay.AppendText("Bot: " + phishingTips[random.Next(phishingTips.Count)] + "\n\n");
-            }
-
-            if (userMessage.Contains("curious"))
-            {
-                ChatDisplay.AppendText("Bot: Curiosity is good — learning about cybersecurity helps keep you safe.\n\n");
-            }
-
-            if (userMessage.Contains("frustrated"))
-            {
-                ChatDisplay.AppendText("Bot: I understand your frustration. Let me simplify it for you.\n\n");
-            }
-        }
-
-        private void HandleMemory(string userMessage)
-        {
-            if (userMessage.StartsWith("my name is"))
-            {
-                string name = userMessage.Replace("my name is", "").Trim();
-                memory["name"] = name;
-
-                ChatDisplay.AppendText("Bot: Nice to meet you " + name + "\n\n");
-                Speak("Nice to meet you");
-            }
-
-            if (userMessage.Contains("i'm interested in privacy"))
-            {
-                memory["topic"] = "privacy";
-
-                ChatDisplay.AppendText("Bot: Great! I'll remember that you're interested in privacy. It's a crucial part of staying safe online.\n\n");
-                Speak("Noted your interest in privacy");
-            }
-
-            if (userMessage.Contains("what am i interested in"))
-            {
-                string topic = memory.ContainsKey("topic") ? memory["topic"] : "nothing specific";
-
-                ChatDisplay.AppendText("Bot: You are interested in " + topic + ".\n\n");
-            }
-
-            if (userMessage.Contains("what is my name"))
-            {
-                string name = memory.ContainsKey("name") ? memory["name"] : "unknown";
-
-                ChatDisplay.AppendText("Bot: Your name is " + name + "\n\n");
-            }
-        }
-
-        private void ContinueConversation()
-        {
-            if (currentTopic == "password")
-            {
-                ChatDisplay.AppendText("Bot: Avoid using birthdays or names in passwords and change them regularly.\n\n");
-            }
-            else if (currentTopic == "phishing")
-            {
-                ChatDisplay.AppendText("Bot: " + phishingTips[random.Next(phishingTips.Count)] + "\n\n");
-            }
-        }
-
-        private string DetectSentiment(string message)
-        {
-            if (message.Contains("worried"))
-                return "Worried ";
-
-            if (message.Contains("curious"))
-                return "Curious ";
-
-            if (message.Contains("frustrated"))
-                return "Frustrated ";
-
-            return "Neutral ";
-        }
-
-        private void Speak(string text)
-        {
-            synth.SpeakAsync(text);
         }
     }
 }
